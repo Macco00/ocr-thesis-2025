@@ -11,8 +11,8 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_key.json"
 
 # === FLAGS ===
 USE_TESSERACT = True
-USE_GOOGLE = True
-USE_AMAZON = True
+USE_GOOGLE = False
+USE_AMAZON = False
 SHOW_PREPROC_IMAGE = False
 
 RESULTS_DIR = "results"
@@ -21,29 +21,30 @@ TEXT_DIR = "text"
 CSV_LOG = os.path.join(RESULTS_DIR, "metrics_log.csv")
 
 
-def preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=1.2):
-    img = cv2.imread(image_path)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+def preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=1.2,
+                     clip_limit=1.5, tile_grid=8, block_size=33, C=2, morph_kernel=1):
+    gray = load_as_grayscale(image_path)
 
     if scale != 1.0:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
     if use_clahe:
-        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_grid, tile_grid))
         gray = clahe.apply(gray)
 
     if use_threshold:
+        if block_size % 2 == 0:
+            block_size += 1
         gray = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, 15, 5
+            cv2.THRESH_BINARY, block_size, C
         )
 
     if use_morph:
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (morph_kernel, morph_kernel))
         gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
 
     return gray
-
 
 
 
@@ -106,6 +107,15 @@ def log_to_csv(engine, base_name, cer, processed):
             writer.writerow(["Image", "Engine", "Preprocessed", "CER (%)"])
         writer.writerow([base_name, engine, processed, cer])
 
+def load_as_grayscale(image_path):
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise ValueError(f"[ERROR] Failed to read image at {image_path}")
+    
+    if len(img.shape) == 3:
+        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        return img.copy()
 
 def process_image(base_name):
     image_path = os.path.join(IMAGE_DIR, f"{base_name}.jpg")
@@ -120,7 +130,7 @@ def process_image(base_name):
     #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=False, use_morph=False)
     #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=False)
     #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=2.0)
-    preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=1.5)
+    preproc = preprocess_image(image_path, use_clahe=False, use_threshold=True, use_morph=False, scale=2.0)
 
 
 
@@ -150,6 +160,66 @@ def process_image(base_name):
             cer = compare_text(output, ground_truth)
             log_to_csv(engine_name, base_name, cer, processed)
 
+def interactive_preprocess_view(image_path):
+    def nothing(x): pass
+
+    cv2.namedWindow('Preprocessing Controls', cv2.WINDOW_NORMAL)
+
+    cv2.createTrackbar('Use CLAHE', 'Preprocessing Controls', 1, 1, nothing)
+    cv2.createTrackbar('CLAHE Clip', 'Preprocessing Controls', 15, 40, nothing)
+    cv2.createTrackbar('CLAHE Grid', 'Preprocessing Controls', 8, 16, nothing)
+
+    cv2.createTrackbar('Use Threshold', 'Preprocessing Controls', 1, 1, nothing)
+    cv2.createTrackbar('Block Size', 'Preprocessing Controls', 15, 50, nothing)
+    cv2.createTrackbar('C', 'Preprocessing Controls', 5, 20, nothing)
+
+    cv2.createTrackbar('Use Morph', 'Preprocessing Controls', 1, 1, nothing)
+    cv2.createTrackbar('Kernel Size', 'Preprocessing Controls', 1, 10, nothing)
+
+    cv2.createTrackbar('Scale x10', 'Preprocessing Controls', 10, 30, nothing)
+
+    while True:
+        use_clahe = cv2.getTrackbarPos('Use CLAHE', 'Preprocessing Controls') == 1
+        clip = cv2.getTrackbarPos('CLAHE Clip', 'Preprocessing Controls') / 10.0
+        grid = max(1, cv2.getTrackbarPos('CLAHE Grid', 'Preprocessing Controls'))
+
+        use_thresh = cv2.getTrackbarPos('Use Threshold', 'Preprocessing Controls') == 1
+        block_size = cv2.getTrackbarPos('Block Size', 'Preprocessing Controls')
+        if block_size % 2 == 0:
+            block_size += 1
+        C = cv2.getTrackbarPos('C', 'Preprocessing Controls')
+
+        use_morph = cv2.getTrackbarPos('Use Morph', 'Preprocessing Controls') == 1
+        kernel_size = max(1, cv2.getTrackbarPos('Kernel Size', 'Preprocessing Controls'))
+
+        scale = cv2.getTrackbarPos('Scale x10', 'Preprocessing Controls') / 10.0
+
+        processed = preprocess_image(
+            image_path,
+            use_clahe=use_clahe,
+            use_threshold=use_thresh,
+            use_morph=use_morph,
+            scale=scale,
+            clip_limit=clip,
+            tile_grid=grid,
+            block_size=block_size,
+            C=C,
+            morph_kernel=kernel_size
+        )
+
+        cv2.imshow('Preprocessed Image', processed)
+
+        key = cv2.waitKey(100)
+        if key == 27:
+            break
+        elif key == ord('s'):
+            save_path = os.path.join(RESULTS_DIR, "interactive_saved.jpg")
+            cv2.imwrite(save_path, processed)
+            print(f"[INFO] Image saved to {save_path}")
+
+    cv2.destroyAllWindows()
+
+
 
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -166,4 +236,6 @@ def main():
 
 
 if __name__ == "__main__":
+    #test_image = os.path.join(IMAGE_DIR, "image8.jpg")
+    #interactive_preprocess_view(test_image)
     main()
