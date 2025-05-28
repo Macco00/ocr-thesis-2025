@@ -1,102 +1,144 @@
+import os
 import cv2
 import pytesseract
-from PIL import Image
-import os
 import difflib
+import boto3
+from google.cloud import vision
 
-# Default path for Tesseract OCR (Windows)
+# === CONFIGURATION ===
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-# === OCR MOTOR FLAGS ===
-USE_TESSERACT = True
-USE_GOOGLE = False
-USE_AMAZON = False
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_key.json"
 
 # === FLAGS ===
+USE_TESSERACT = True
+USE_GOOGLE = True
+USE_AMAZON = True
 SHOW_PREPROC_IMAGE = False
+
+RESULTS_DIR = "results"
+IMAGE_DIR = "picture"
+TEXT_DIR = "text"
+CSV_LOG = os.path.join(RESULTS_DIR, "metrics_log.csv")
+
 
 def preprocess_image(image_path):
     img = cv2.imread(image_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
-    # Otsu threshold
     _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # Show processed results
+
     if SHOW_PREPROC_IMAGE:
-        cv2.imshow("Preprocessed (CLAHE + Otsu)", thresh)
+        cv2.imshow("Preprocessed Image", thresh)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
     return thresh
 
 
 def run_tesseract(image):
     return pytesseract.image_to_string(image)
 
-# Placeholder — replace with real API later
+
 def run_google(image):
-    return "[Google OCR not implemented]"
+    client = vision.ImageAnnotatorClient()
+    success, encoded_image = cv2.imencode('.jpg', image)
+    if not success:
+        return "[Image encoding failed]"
+    image_bytes = encoded_image.tobytes()
+    google_image = vision.Image(content=image_bytes)
+    response = client.text_detection(image=google_image)
+
+    if response.error.message:
+        return f"[Google OCR error: {response.error.message}]"
+
+    return response.text_annotations[0].description if response.text_annotations else "[No text detected]"
+
 
 def run_amazon(image):
-    return "[Amazon OCR not implemented]"
+    client = boto3.client('textract', region_name='us-east-1')
+    success, encoded_image = cv2.imencode('.jpg', image)
+    if not success:
+        return "[Image encoding failed]"
+    img_bytes = encoded_image.tobytes()
 
-def save_text(result, engine, processed, output_dir="results"):
-    os.makedirs(output_dir, exist_ok=True)
-    filename = f"{engine}_{'preprocessed' if processed else 'original'}.txt"
-    path = os.path.join(output_dir, filename)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(result)
+    try:
+        response = client.detect_document_text(Document={'Bytes': img_bytes})
+        lines = [item['Text'] for item in response['Blocks'] if item['BlockType'] == 'LINE']
+        return '\n'.join(lines)
+    except Exception as e:
+        return f"[Amazon OCR error: {str(e)}]"
 
-def compare_text(ocr_output, ground_truth):
-    sm = difflib.SequenceMatcher(None, ocr_output, ground_truth)
+
+def compare_text(output, truth):
+    clean = lambda t: t.replace('\n', '').replace('\r', '').replace(' ', '').strip().lower()
+    sm = difflib.SequenceMatcher(None, clean(output), clean(truth))
     cer = 1 - sm.ratio()
     return round(cer * 100, 2)
 
+
+def save_text(text, engine, base_name, processed):
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    suffix = "preproc" if processed else "original"
+    filename = f"{base_name}_{engine}_{suffix}.txt"
+    with open(os.path.join(RESULTS_DIR, filename), "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def log_to_csv(engine, base_name, cer, processed):
+    import csv
+    file_exists = os.path.isfile(CSV_LOG)
+    with open(CSV_LOG, 'a', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        if not file_exists:
+            writer.writerow(["Image", "Engine", "Preprocessed", "CER (%)"])
+        writer.writerow([base_name, engine, processed, cer])
+
+
+def process_image(base_name):
+    image_path = os.path.join(IMAGE_DIR, f"{base_name}.jpg")
+    text_path = os.path.join(TEXT_DIR, f"{base_name}.txt")
+
+    if not os.path.exists(image_path) or not os.path.exists(text_path):
+        print(f"[WARNING] Missing file for '{base_name}'")
+        return
+
+    normal = cv2.imread(image_path)
+    preproc = preprocess_image(image_path)
+
+    with open(text_path, 'r', encoding='utf-8') as f:
+        ground_truth = f.read()
+
+    engines = {
+        "Tesseract": run_tesseract if USE_TESSERACT else None,
+        "Google": run_google if USE_GOOGLE else None,
+        "Amazon": run_amazon if USE_AMAZON else None,
+    }
+
+    for engine_name, runner in engines.items():
+        if not runner:
+            continue
+
+        for processed, img in [(False, normal), (True, preproc)]:
+            output = runner(img)
+            save_text(output, engine_name.lower(), base_name, processed)
+            cer = compare_text(output, ground_truth)
+            log_to_csv(engine_name, base_name, cer, processed)
+
+
 def main():
-    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hello.png")
-    text_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image-text.txt")
-    
-    if not os.path.exists(image_path):
-        print(f"Imagepath '{image_path}' not found.")
-        return
-    
-    if not os.path.exists(text_path):
-        print(f"Imagepath '{text_path}' not found.")
-        return
-    
-    # All images need text variant for accuracy control, "ground truth"
-    with open(text_path, 'r') as file:
-        text_image = file.read()
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    if os.path.exists(CSV_LOG):
+        os.remove(CSV_LOG)
 
-    print("[INFO] Reading image...")
-    normal_image = cv2.imread(image_path)
-    preprocessed_img = preprocess_image(image_path)
+    for file in os.listdir(IMAGE_DIR):
+        if file.endswith(".jpg"):
+            base = os.path.splitext(file)[0]
+            print(f"[INFO] Processing '{base}'...")
+            process_image(base)
 
-    # === OCR: Tesseract ===
-    if USE_TESSERACT:
-        print("[INFO] Running Tesseract...")
-        tesseract_normal = run_tesseract(normal_image)
-        tesseract_preprocessed = run_tesseract(preprocessed_img)
-        save_text(tesseract_normal, "tesseract", processed=False)
-        save_text(tesseract_preprocessed, "tesseract", processed=True)
+    print("[INFO] Done. See results in:", CSV_LOG)
 
-    # === OCR: Google Vision ===
-    if USE_GOOGLE:
-        print("[INFO] Running Google OCR...")
-        google_normal = run_google(normal_image)
-        google_preprocessed = run_google(preprocessed_img)
-        save_text(google_normal, "google", processed=False)
-        save_text(google_preprocessed, "google", processed=True)
-
-    # === OCR: AWS Textract ===
-    if USE_AMAZON:
-        print("[INFO] Running Amazon Textract...")
-        amazon_normal = run_amazon(normal_image)
-        amazon_preprocessed = run_amazon(preprocessed_img)
-        save_text(amazon_normal, "amazon", processed=False)
-        save_text(amazon_preprocessed, "amazon", processed=True)
-
-    print("[INFO] OCR results saved to /results")
 
 if __name__ == "__main__":
     main()
