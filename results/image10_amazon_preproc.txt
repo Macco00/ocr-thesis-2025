@@ -1,11 +1,11 @@
 ROSSOMANDO & ASSOCIATES
 MEMORANDUM
-FOR:
+FOR
 Peggy Carter, R.J. Reynolds Tobacco Co.
 FROM:
 Chris Rossomando
-CR
-SUBJECT: Fire Safety Project Update
+SUBJECT:
+Fire Safety Project Update
 DATE:
 May 11, 1992
 As you know, Paul Warner and I will be in Maine for focus groups later this week, and
@@ -32,10 +32,7 @@ Peoria
 The project is going extremely well in Peoria, where about 200 smoke detector requests have
 been received from the target area. Chief Russell reported that there was a fire in the target
 area last week, which claimed the lives of three people, including two children. A smoke
-detector was found on the floor - with a battery still wrapped in plastic packaging materials.
+detector was found on the floor - with a battery still wrapped in plastic packaging materials
 (This was not a detector distributed under the program; Peoria is installing and testing all
-WRITING
-COMMUNICATIONS
-RESEARCH
-PUBLICATIONS
+WRITING COMMUNICATIONS . RESEARCH PUBLICATIONS
 1932 CALVERT ST., NW, SUITE 1 WASHINGTON, DC 20009 202/232-8913

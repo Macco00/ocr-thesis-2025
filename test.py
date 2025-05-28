@@ -21,19 +21,31 @@ TEXT_DIR = "text"
 CSV_LOG = os.path.join(RESULTS_DIR, "metrics_log.csv")
 
 
-def preprocess_image(image_path):
+def preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=1.2):
     img = cv2.imread(image_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    if SHOW_PREPROC_IMAGE:
-        cv2.imshow("Preprocessed Image", thresh)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    if scale != 1.0:
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
-    return thresh
+    if use_clahe:
+        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
+    if use_threshold:
+        gray = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 15, 5
+        )
+
+    if use_morph:
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
+        gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
+
+    return gray
+
+
+
 
 
 def run_tesseract(image):
@@ -104,7 +116,16 @@ def process_image(base_name):
         return
 
     normal = cv2.imread(image_path)
-    preproc = preprocess_image(image_path)
+    #preproc = preprocess_image(image_path, use_clahe=False, use_threshold=False, use_morph=False, scale=1.0)
+    #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=False, use_morph=False)
+    #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=False)
+    #preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=2.0)
+    preproc = preprocess_image(image_path, use_clahe=True, use_threshold=True, use_morph=True, scale=1.5)
+
+
+
+
+
 
     # Spara förbehandlad bild
     preproc_image_path = os.path.join(RESULTS_DIR, f"{base_name}_preproc.jpg")
