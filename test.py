@@ -106,6 +106,10 @@ def process_image(base_name):
     normal = cv2.imread(image_path)
     preproc = preprocess_image(image_path)
 
+    # Spara förbehandlad bild
+    preproc_image_path = os.path.join(RESULTS_DIR, f"{base_name}_preproc.jpg")
+    cv2.imwrite(preproc_image_path, preproc)
+
     with open(text_path, 'r', encoding='utf-8') as f:
         ground_truth = f.read()
 
