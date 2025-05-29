@@ -11,8 +11,8 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_key.json"
 
 # === FLAGS ===
 USE_TESSERACT = True
-USE_GOOGLE = False
-USE_AMAZON = False
+USE_GOOGLE = True
+USE_AMAZON = True
 SHOW_PREPROC_IMAGE = False
 
 RESULTS_DIR = "results"
@@ -270,17 +270,17 @@ def is_almost_binary(gray):
     dark = hist[:30].sum()
     bright = hist[225:].sum()
     binary_ratio = (dark + bright) / total_pixels
-    return binary_ratio > 0.95
+    print(f"[DEBUG] Binary ratio: {binary_ratio:.3f}")
+    return binary_ratio > 0.99
 
 def auto_preprocess_image(image_path, scale=1.0):
     gray = load_as_grayscale(image_path)
 
-    if scale != 1.0:
-        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-
-    if is_almost_binary(gray):
+    if is_almost_binary(cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)):
         print("[INFO] Skipping preprocessing (binary-like image)")
         return gray
+
+    
 
     # Prova olika threshold-parametrar och välj bästa
     truth_path = os.path.join(TEXT_DIR, os.path.basename(image_path).replace('.jpg', '.txt'))

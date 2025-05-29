@@ -1,0 +1,30 @@
+=== Resultatöversikt ===
+         Original CER  Preprocessed CER  Difference  Improved
+Image
+image1          12.18             12.28       -0.10     False
+image10         64.38             52.02       12.36      True
+image11         37.00             94.12      -57.12     False
+image12          9.57              9.14        0.43      True
+image13          9.06              7.69        1.37      True
+image14         82.99             69.79       13.20      True
+image15         93.90             92.76        1.14      True
+image16         33.45             33.45        0.00     False
+image17          3.38              3.24        0.14      True
+image18         14.53             18.40       -3.87     False
+image19         16.34             16.69       -0.35     False
+image2          29.08             32.68       -3.60     False
+image20          9.68             10.60       -0.92     False
+image3           4.30              6.90       -2.60     False
+image4          41.23             42.98       -1.75     False
+image5          44.03             44.85       -0.82     False
+image6          57.48             60.03       -2.55     False
+image7           7.76             11.35       -3.59     False
+image8          24.81             26.06       -1.25     False
+image9          84.56             48.50       36.06      True
+
+Totalt antal bilder: 20
+Förbättrades: 7 bilder
+Försämrades: 13 bilder
+Genomsnittlig CER före: 33.99%
+Genomsnittlig CER efter: 34.68%
+Genomsnittlig förbättring: -0.69 procentenheter

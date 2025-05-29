@@ -5,14 +5,14 @@ Arbetter, Louis
 Sent:
 Tuesday, July 28, 1998 8:04 PM
 To:
-Moore, Jay T.; Nedeltscheff, Olga.
+Moore, Jay T.; Nedeltscheff, Olga
 Cc:
 Murillo, Joe; Reale, Anthony; Mulligan, Kathleen
 Subject:
 RE: IV-508 MU 99
 I just received some new pricing information which alters the forecast I sent earlier today. Some Items have decreased in
 cost considerably, due to the negotiating prowess of our purchasing department. The revised forecast is attached.
-MU'99 Forecast
+MUR9 Forecast
 From:
 Arbetter, Louis
 Sent:
@@ -20,11 +20,12 @@ Tuesday, July 28, 1998 12:58 PM
 To:
 Moore, Jay T.; Nadeltscheff, Olga
 Cc:
-Murillo, Joe: Reale, Anthony; Mulligan, Kathleen
+Murlllo, Joe; Reale, Anthony: Mulligan, Kathleen
 Subject:
 RE: IV-508 MU 99
 The attached document details the estimated forecasts for MU'99. These are slightly different from the forecasts I sent
 6/22. Unfortunately, final forecast numbers will not be available for another two weeks.
-<<File: MU'99 Forecast xis>:
+<<File: MU'99 Forecast.x[s>>
 REDACTED
+20
 1
